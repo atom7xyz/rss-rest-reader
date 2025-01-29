@@ -2,15 +2,14 @@ package xyz.atoml.rssrestreader;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-@SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
+@SpringBootApplication
+@EnableConfigurationProperties
 public class RssRestReaderApplication
 {
-
     public static void main(String[] args)
     {
         SpringApplication.run(RssRestReaderApplication.class, args);
     }
-
 }

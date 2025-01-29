@@ -2,57 +2,56 @@ package xyz.atoml.rssrestreader.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
 import xyz.atoml.rssrestreader.services.AuthService;
+import xyz.atoml.rssrestreader.services.RateLimiterService;
 
 import java.io.IOException;
-import java.util.Collections;
 
 @Component
-@Order(2)
-public class ApiKeyFilter extends OncePerRequestFilter
+@Order(1)
+public class ApiKeyFilter extends HttpFilter
 {
     private static final String HEADER_API = "X-API-KEY";
 
-    private final AuthService authServiceHelper;
+    private final AuthService authService;
+    private final RateLimiterService rateLimiterService;
 
-    public ApiKeyFilter(AuthService authServiceHelper)
+    public ApiKeyFilter(AuthService authService, RateLimiterService rateLimiterService)
     {
-        this.authServiceHelper = authServiceHelper;
+        this.authService = authService;
+        this.rateLimiterService = rateLimiterService;
     }
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                    @NonNull HttpServletResponse response,
-                                    @NonNull FilterChain filterChain) throws ServletException, IOException
+    protected void doFilter(@NonNull HttpServletRequest request,
+                            @NonNull HttpServletResponse response,
+                            @NonNull FilterChain filterChain) throws ServletException, IOException
     {
-        if (!authServiceHelper.isEnabled())
-        {
+        if (!authService.isEnabled()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String reqApiKey = request.getHeader(HEADER_API);
-        boolean apiKeyInvalid = !authServiceHelper.validateApiKey(reqApiKey);
+        String address = request.getRemoteAddr();
+        String apiKey = request.getHeader(HEADER_API);
 
-        if (apiKeyInvalid)
-        {
-            response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid API Key");
+        if (apiKey == null || apiKey.isEmpty()) {
+            response.sendError(HttpStatus.UNAUTHORIZED.value(), "Missing API key");
             return;
         }
 
-        var authToken = new UsernamePasswordAuthenticationToken(reqApiKey, reqApiKey, Collections.emptyList());
-
-        SecurityContextHolder.getContext()
-                             .setAuthentication(authToken);
+        if (!authService.validateApiKey(apiKey)) {
+            rateLimiterService.signHit(address, RateLimitType.WRONG_API_KEY);
+            response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid API Key");
+            return;
+        }
 
         filterChain.doFilter(request, response);
     }

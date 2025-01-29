@@ -1,12 +1,13 @@
 package xyz.atoml.rssrestreader.services;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.lang.NonNull;
+import lombok.NonNull;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import xyz.atoml.rssrestreader.services.struct.AppService;
-import xyz.atoml.rssrestreader.utils.AppLogger;
+import xyz.atoml.rssrestreader.config.SecurityConfig;
+import xyz.atoml.rssrestreader.core.BaseService;
+import xyz.atoml.rssrestreader.core.logging.AppLogger;
+import xyz.atoml.rssrestreader.security.RateLimitType;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,42 +16,69 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @EnableScheduling
-public class RateLimiterService extends AppService
+public class RateLimiterService extends BaseService
 {
-    private final int maxRequestsPerMinute;
-    private final Map<String, AtomicInteger> requestCounts;
+    private final int rateLimitAction;
+    private final int rateLimitWrongApiKey;
+    private final Map<String, AtomicInteger> actionRequests;
+    private final Map<String, AtomicInteger> wrongApiKeyRequests;
 
-    public RateLimiterService(@Value("${rss.api.rate-limit:#{-1}}") int maxRequestsPerMinute)
+    public RateLimiterService(SecurityConfig config)
     {
-        super(maxRequestsPerMinute > 0);
-        this.maxRequestsPerMinute = maxRequestsPerMinute;
-        this.requestCounts = new ConcurrentHashMap<>();
+        super(config.getRateLimitAction() > 0 || config.getRateLimitWrongApiKey() > 0);
 
-        if (!isEnabled())
-        {
-            AppLogger.warn("API Rate limit is disabled.");
-            AppLogger.warn("To enable it, change the config: `rss.api.rate-limit`");
-        }
+        this.rateLimitAction = config.getRateLimitAction();
+        this.rateLimitWrongApiKey = config.getRateLimitWrongApiKey();
+        this.actionRequests = new ConcurrentHashMap<>();
+        this.wrongApiKeyRequests = new ConcurrentHashMap<>();
     }
 
-    public boolean isAllowed(@NonNull String ipAddress)
+    public boolean hasReachedRateLimit(@NonNull String address, RateLimitType type)
     {
-        if (!isEnabled())
+        return switch (type)
         {
-            return true;
+            case ACTION -> checkRateLimit(address, rateLimitAction, actionRequests);
+            case WRONG_API_KEY -> checkRateLimit(address, rateLimitWrongApiKey, wrongApiKeyRequests);
+        };
+    }
+
+    public void signHit(@NonNull String address, RateLimitType type)
+    {
+        switch (type)
+        {
+            case ACTION -> incrEntry(address, actionRequests);
+            case WRONG_API_KEY -> incrEntry(address, wrongApiKeyRequests);
         }
-
-        requestCounts.putIfAbsent(ipAddress, new AtomicInteger(0));
-
-        int currentCount = requestCounts.get(ipAddress)
-                                        .incrementAndGet();
-
-        return currentCount <= maxRequestsPerMinute;
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     public void resetCounts()
     {
-        requestCounts.clear();
+        actionRequests.clear();
+        wrongApiKeyRequests.clear();
+    }
+
+    private void incrEntry(@NonNull String address, Map<String, AtomicInteger> map)
+    {
+        map.putIfAbsent(address, new AtomicInteger(0));
+        map.get(address).getAndIncrement();
+    }
+
+    private boolean checkRateLimit(@NonNull String address, int limit, Map<String, AtomicInteger> map)
+    {
+        map.putIfAbsent(address, new AtomicInteger(1));
+        return map.get(address).get() > limit;
+    }
+
+    @Override
+    protected void logConfiguration()
+    {
+        if (!enabled) {
+            AppLogger.warn("Rate limiting is completely disabled!");
+            return;
+        }
+
+        AppLogger.info(String.format("Rate limits: %d actions/min, %d wrong API keys/min",
+                rateLimitAction, rateLimitWrongApiKey));
     }
 }

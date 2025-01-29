@@ -4,6 +4,7 @@ import com.apptasticsoftware.rssreader.Item;
 import com.apptasticsoftware.rssreader.RssReader;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import xyz.atoml.rssrestreader.exception.RssFeedException;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,9 +16,14 @@ public class RssFeedService
 {
     private final RssReader rssReader = new RssReader();
 
-    public List<Item> fetchRssFeed(@NonNull String rssUrl) throws IOException
+    public List<Item> fetchRssFeed(@NonNull String rssUrl) throws RssFeedException
     {
-        Stream<Item> rssItems = rssReader.read(rssUrl);
-        return rssItems.collect(Collectors.toList());
+        try {
+            Stream<Item> rssItems = rssReader.read(rssUrl);
+            return rssItems.collect(Collectors.toList());
+        }
+        catch (IOException e) {
+            throw new RssFeedException("Failed to fetch RSS feed from the provided URL", e);
+        }
     }
 }

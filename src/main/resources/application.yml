@@ -1,0 +1,8 @@
+server:
+  port: 9009
+
+app:
+  security:
+    api-key: changeme
+    rate-limit-action: 100
+    rate-limit-wrong-api-key: 1

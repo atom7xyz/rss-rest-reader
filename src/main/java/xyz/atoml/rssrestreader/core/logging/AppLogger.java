@@ -1,4 +1,4 @@
-package xyz.atoml.rssrestreader.utils;
+package xyz.atoml.rssrestreader.core.logging;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
