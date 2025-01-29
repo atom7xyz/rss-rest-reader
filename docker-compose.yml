@@ -1,0 +1,24 @@
+services:
+
+  rss-rest-reader:
+    image: amazoncorretto:21-alpine-jdk
+    container_name: rss-rest-reader
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - APP_SECURITY_API_KEY=changeme
+      - APP_RATE_LIMIT_ACTION=50
+      - APP_RATE_LIMIT_WRONG_API_KEY=1
+      - SERVER_PORT=9009
+    ports:
+      - "9009:9009"
+    command: ["java", "-jar", "rss-rest-reader-1.0.0-SNAPSHOT.jar"]
+    restart: unless-stopped
+    user: "1000:1000"
+    #networks:
+    #  - shared-nginx
+
+#networks:
+#  shared-nginx:
+#    external: true
