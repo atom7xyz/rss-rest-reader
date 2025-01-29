@@ -1,6 +1,6 @@
 ![Java](https://img.shields.io/badge/Java-17%2B-216B00?style=for-the-badge)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4+-216B00?style=for-the-badge)
-![License](https://img.shields.io/github/license/YOUR_USERNAME/rss-rest-reader?style=for-the-badge&color=7469B6)
+![License](https://img.shields.io/github/license/atom7xyz/rss-rest-reader?style=for-the-badge&color=7469B6)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/atom7xyz/rss-rest-reader/total?style=for-the-badge&color=155E95)
 
 # rss-rest-reader
